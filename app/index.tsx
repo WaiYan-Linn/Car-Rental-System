@@ -1,6 +1,12 @@
-import { Redirect } from 'expo-router';
+import { useOnboardingStore } from "@/store/onboardingStore";
+import { Redirect } from "expo-router";
 
 export default function Index() {
-  // Let the (protected) layout handle the session check
+  const { hasSeenOnboarding } = useOnboardingStore();
+
+  if (!hasSeenOnboarding) {
+    return <Redirect href="/(onboarding)" />;
+  }
+
   return <Redirect href="/(tabs)" />;
 }
