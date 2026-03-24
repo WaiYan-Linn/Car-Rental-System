@@ -2,11 +2,17 @@ import { useAuthStore } from '@/store/useAuthStore';
 import { Redirect, Stack } from 'expo-router';
 import React from 'react';
 
+import { ActivityIndicator, View } from 'react-native';
+
 export default function ProtectedLayout() {
   const { session, isLoading } = useAuthStore();
 
   if (isLoading) {
-    return null; // Or a loading spinner
+    return (
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+        <ActivityIndicator size="large" color="#16a8e3" />
+      </View>
+    );
   }
 
   if (!session) {

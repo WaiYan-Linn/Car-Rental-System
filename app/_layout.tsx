@@ -13,6 +13,8 @@ import { useColorScheme } from "@/hooks/use-color-scheme";
 import { GluestackUIProvider } from "@/components/ui/gluestack-ui-provider";
 
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { useAuthStore } from "@/store/useAuthStore";
+import { useEffect } from "react";
 
 const queryClient = new QueryClient();
 
@@ -22,6 +24,11 @@ export const unstable_settings = {
 
 export default function RootLayout() {
   const colorScheme = useColorScheme();
+  const { initialize } = useAuthStore();
+
+  useEffect(() => {
+    initialize();
+  }, [initialize]);
 
   return (
     <QueryClientProvider client={queryClient}>
