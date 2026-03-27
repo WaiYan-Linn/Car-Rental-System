@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "978221964692",
+    "project_id": "car-rental-app-by-will",
+    "storage_bucket": "car-rental-app-by-will.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:978221964692:android:82b498d5d85b15e7958381",
+        "android_client_info": {
+          "package_name": "com.waiyanlin.carrentalpractice"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCvJbcCZgbCoqfcSpxxuf6Q3IKUbXa8uns"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
