@@ -1,5 +1,8 @@
 import { supabase } from "@/lib/supabase";
-import { router } from "expo-router";
+import { useAuthStore } from "@/store/useAuthStore";
+import * as AuthSession from "expo-auth-session";
+import { Link } from "expo-router";
+import * as WebBrowser from "expo-web-browser";
 import { Eye, EyeOff } from "lucide-react-native";
 import React, { useState } from "react";
 import {
@@ -17,6 +20,7 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
+WebBrowser.maybeCompleteAuthSession();
 const { width, height } = Dimensions.get("window");
 
 export default function LoginScreen() {
@@ -25,19 +29,17 @@ export default function LoginScreen() {
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
 
+  // Use the store's initialize to force-sync data after login
+  const { initialize } = useAuthStore();
+
   const handleLogin = async () => {
     if (!email || !password) {
       Alert.alert("Error", "Please enter both email and password");
       return;
     }
-
     setLoading(true);
-
     try {
-      const {
-        data: { session },
-        error,
-      } = await supabase.auth.signInWithPassword({
+      const { error } = await supabase.auth.signInWithPassword({
         email,
         password,
       });
@@ -48,14 +50,11 @@ export default function LoginScreen() {
         return;
       }
 
-      if (session) {
-        // Successful login, router will handle redirect or user can redirect manually
-        console.log("success");
-        router.replace("/(protected)/(tabs)");
-      }
-    } catch {
+      // Sync the "Brain" immediately.
+      // The ProtectedLayout will detect the state change and redirect for us.
+      await initialize();
+    } catch (err) {
       Alert.alert("Error", "An unexpected error occurred");
-    } finally {
       setLoading(false);
     }
   };
@@ -63,17 +62,36 @@ export default function LoginScreen() {
   const handleGoogleLogin = async () => {
     setLoading(true);
     try {
-      const { error } = await supabase.auth.signInWithOAuth({
+      const redirectTo = AuthSession.makeRedirectUri({
+        scheme: "carrentalpractice",
+        path: "auth",
+      });
+
+      const { data, error } = await supabase.auth.signInWithOAuth({
         provider: "google",
-        options: {
-          redirectTo: "carrentalpractice://auth", // Match your app.json scheme
-        },
+        options: { redirectTo, skipBrowserRedirect: true },
       });
 
       if (error) throw error;
-      // On success, this will open a browser for the user to log in
+
+      const result = await WebBrowser.openAuthSessionAsync(
+        data.url,
+        redirectTo,
+      );
+
+      if (result.type === "success") {
+        const params = new URLSearchParams(result.url.split("#")[1]);
+        const access_token = params.get("access_token");
+        const refresh_token = params.get("refresh_token");
+
+        if (access_token && refresh_token) {
+          await supabase.auth.setSession({ access_token, refresh_token });
+          // Force fetch the profile so the Gatekeeper knows if NRC is missing
+          await initialize();
+        }
+      }
     } catch (error: any) {
-      Alert.alert("Google Login Error", error.message);
+      Alert.alert("Login Error", error.message);
     } finally {
       setLoading(false);
     }
@@ -81,11 +99,10 @@ export default function LoginScreen() {
 
   return (
     <View className="flex-1 bg-[#f8f9fa]">
-      {/* 1. Asset Image (Car Tail) */}
       <Image
         source={require("@/assets/images/login.png")}
-        style={{ width: width, height: height }}
-        className="absolute left-0 top-40"
+        style={{ width: width, height: height, opacity: 0.4 }}
+        className="absolute left-0 top-40 "
         resizeMode="contain"
       />
 
@@ -94,40 +111,29 @@ export default function LoginScreen() {
           behavior={Platform.OS === "ios" ? "padding" : "height"}
           className="flex-1 px-8"
         >
-          {/* ScrollView for better flexibility */}
           <ScrollView showsVerticalScrollIndicator={false} className="flex-1">
-            {/* 2. Logo and Branding */}
-            <View className="items-center mt-10">
-              <View className="flex-row items-center">
-                <Image
-                  source={require("@/assets/images/carIcon.png")}
-                  className="w-12 h-6"
-                  resizeMode="contain"
-                />
-              </View>
+            <View className="items-center mt-6">
+              {/* Car Logo UI */}
+              <Image
+                source={require("@/assets/images/carIcon.png")}
+                className="w-12 h-6"
+                resizeMode="contain"
+              />
               <View className="flex-row mt-2">
                 <Text className="text-sm font-bold tracking-widest text-black">
-                  CAR{" "}
-                </Text>
-                <Text className="text-[#16a8e3] font-bold text-sm tracking-widest">
-                  RENTAL{" "}
-                </Text>
-                <Text className="text-sm font-bold tracking-widest text-black">
-                  APP
+                  CAR RENTAL APP
                 </Text>
               </View>
             </View>
 
-            {/* 3. Header Text */}
-            <View className="mt-16">
+            <View className="mt-4">
               <Text className="text-[#0a4a6e] text-[32px] font-bold text-center">
                 Sign In to your Account
               </Text>
             </View>
 
-            {/* 4. Input Fields */}
-            <View className="mt-10">
-              {/* Email Field */}
+            {/* Inputs */}
+            <View className="mt-6">
               <Text className="text-[#16a8e3] font-bold mb-2 ml-1">Email</Text>
               <TextInput
                 placeholder="Email"
@@ -135,11 +141,8 @@ export default function LoginScreen() {
                 onChangeText={setEmail}
                 className="px-4 py-4 mb-6 text-gray-700 bg-white border border-gray-300 rounded-xl"
                 autoCapitalize="none"
-                keyboardType="email-address"
-                editable={!loading}
               />
 
-              {/* Password Field */}
               <Text className="text-[#16a8e3] font-bold mb-2 ml-1">
                 Password
               </Text>
@@ -150,7 +153,6 @@ export default function LoginScreen() {
                   onChangeText={setPassword}
                   className="px-4 py-4 text-gray-700 bg-white border border-gray-300 rounded-xl"
                   secureTextEntry={!showPassword}
-                  editable={!loading}
                 />
                 <TouchableOpacity
                   className="absolute right-4 top-4"
@@ -163,31 +165,13 @@ export default function LoginScreen() {
                   )}
                 </TouchableOpacity>
               </View>
-
-              {/* Forgot Password */}
-              <TouchableOpacity
-                className="self-end mt-4"
-                onPress={() =>
-                  Alert.alert(
-                    "Coming soon!",
-                    "Password reset is not implemented yet.",
-                  )
-                }
-                disabled={loading}
-              >
-                <Text className="text-[#16a8e3] font-medium">
-                  Forgot Password?
-                </Text>
-              </TouchableOpacity>
             </View>
 
-            {/* 5. Sign In Button */}
+            {/* Buttons */}
             <TouchableOpacity
               onPress={handleLogin}
               disabled={loading}
-              className={`rounded-xl py-4 mt-4 shadow-md ${
-                loading ? "bg-gray-400" : "bg-[#16a8e3]"
-              }`}
+              className={`rounded-xl py-4 mt-6 shadow-md ${loading ? "bg-gray-400" : "bg-[#16a8e3]"}`}
             >
               {loading ? (
                 <ActivityIndicator color="white" />
@@ -198,35 +182,35 @@ export default function LoginScreen() {
               )}
             </TouchableOpacity>
 
-            {/* OR Divider */}
-            <View className="flex-row items-center my-6">
+            <View className="flex-row items-center my-4">
               <View className="flex-1 h-[1px] bg-gray-300" />
-              <Text className="mx-4 text-gray-500 font-medium">OR</Text>
+              <Text className="mx-4 font-medium text-gray-500">OR</Text>
               <View className="flex-1 h-[1px] bg-gray-300" />
             </View>
 
-            {/* Google Login Button */}
             <TouchableOpacity
               onPress={handleGoogleLogin}
               disabled={loading}
-              className="flex-row items-center justify-center bg-white border border-gray-200 rounded-xl py-4 shadow-sm"
+              className="flex-row items-center justify-center py-4 bg-white border border-gray-200 shadow-sm rounded-xl"
             >
-              <Text className="text-gray-700 font-bold ml-2 text-lg">
+              <Image
+                source={{ uri: "https://authjs.dev/img/providers/google.svg" }}
+                className="w-6 h-6 mr-3"
+              />
+              <Text className="text-lg font-bold text-gray-700">
                 Continue with Google
               </Text>
             </TouchableOpacity>
 
-            {/* 6. Sign Up Link */}
-            <View className="flex-row justify-center mt-8 mb-10">
-              <Text className="text-gray-500 font-medium">
-                Don{"'"}t have an account?{" "}
+            <View className="flex-row justify-center mt-4 mb-10">
+              <Text className="font-medium text-gray-500">
+                Don't have an account?{" "}
               </Text>
-              <TouchableOpacity
-                onPress={() => router.push("/auth/signup")}
-                disabled={loading}
-              >
-                <Text className="text-[#16a8e3] font-bold">Sign Up</Text>
-              </TouchableOpacity>
+              <Link href="/auth/signup" asChild>
+                <TouchableOpacity disabled={loading}>
+                  <Text className="text-[#16a8e3] font-bold">Sign Up</Text>
+                </TouchableOpacity>
+              </Link>
             </View>
           </ScrollView>
         </KeyboardAvoidingView>

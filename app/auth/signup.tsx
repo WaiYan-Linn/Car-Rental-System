@@ -69,7 +69,7 @@ export default function SignupScreen() {
     <View className="flex-1 bg-[#f8f9fa]">
       <Image
         source={require("@/assets/images/login.png")}
-        style={{ width: width, height: height }}
+        style={{ width: width, height: height, opacity: 0.1 }}
         className="absolute left-0 top-40"
         resizeMode="contain"
       />
@@ -83,7 +83,7 @@ export default function SignupScreen() {
         >
           <TouchableOpacity
             onPress={() => router.back()}
-            className="mt-4 w-10 h-10 items-center justify-center rounded-full bg-white shadow-sm"
+            className="items-center justify-center w-10 h-10 mt-4 bg-white rounded-full shadow-sm"
           >
             <ChevronLeft size={24} color="#0a4a6e" />
           </TouchableOpacity>
@@ -119,7 +119,7 @@ export default function SignupScreen() {
               <Text className="text-[#0a4a6e] text-[28px] font-bold text-center">
                 Create Account
               </Text>
-              <Text className="text-gray-500 text-center mt-1">
+              <Text className="mt-1 text-center text-gray-500">
                 Join us to start your journey
               </Text>
             </View>
@@ -209,7 +209,7 @@ export default function SignupScreen() {
             </TouchableOpacity>
 
             <View className="flex-row justify-center mt-6 mb-10">
-              <Text className="text-gray-500 font-medium">
+              <Text className="font-medium text-gray-500">
                 Already have an account?{" "}
               </Text>
               <TouchableOpacity onPress={() => router.push("/auth/login")}>
